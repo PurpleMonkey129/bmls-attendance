@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Edit Theory Attendance</title>
+  <style>
+    body { font-family: Arial; padding: 20px; background: #f4f4f4; }
+    h2 { margin-bottom: 10px; }
+    .back-btn { margin-bottom: 20px; }
+    select, button { padding: 8px; margin: 10px 0; }
+    .student-list { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
+    .student-checkbox { display: flex; align-items: center; background: #fff; border: 1px solid #ccc; border-radius: 20px; padding: 6px 12px; }
+    .student-checkbox input { margin-right: 6px; }
+    .absent { background: #f44336; color: #fff; }
+    .save-btn { background: #2196F3; color: #fff; border: none; border-radius: 5px; padding: 10px 20px; cursor: pointer; }
+    .save-btn:hover { background: #1976D2; }
+  </style>
+</head>
+<body>
+<div class="back-btn"><button onclick="window.location.href='view-attendance-theory.html'">Back</button></div>
+<h2>Edit Theory Attendance</h2>
+<label>Select Class:</label>
+<select id="classSelect"><option value="">-- Select Class --</option></select>
+<div id="studentList" class="student-list"></div>
+<button class="save-btn" onclick="saveAttendance()">Save Attendance</button>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getFirestore, collection, getDocs, updateDoc, doc, query, where } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyA9v2CFMe87WMvKMQU4-VP6241Ez0nNj_o",
+  authDomain: "attendance-a480f.firebaseapp.com",
+  projectId: "attendance-a480f",
+  storageBucket: "attendance-a480f.firebasestorage.app",
+  messagingSenderId: "719757420786",
+  appId: "1:719757420786:web:5f16b1a837f8261939086b"
+};
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+const studentNames = [..."ABINAYA R,AFIFA NOORI HUSSAIN,AKSHARA PREMARAJ P,AMUSHA,ANSHIF K K,AYISHA SANA,AYUSH VERMA,BISWARUP MONDAL,DHIYA FATHIMA K,FATHIMA MIDHIHA V P,FATHIMA ZILNA N V,GURRAPU VEEKSHITHA,HAASEFA. M,HANNA K,HARSHA FATHIMA M K,JAYASRI N,JEREMIAH ABRAHAM,JUMANA SULTHANA K P,KALAIVANI. E,KAVYA HARI,KESSIYA SUSAN ABRAHAM,KOKILADEVI P,LOGESHVAR M,MANIKKAMARY G,MEERA K,NAHLA K,NANDANA S R,NITHEESHWARAN R,PRIYA DHAKSHINI D,REVATHI S,SHAULI MAJUMDER,SHIKHA SATHEESH,SHOHIB AKTHAR A,SIDHRATHIL MUNTHAHA S M,STANZIN SHERAP,VARSHA V,YADUKRISHNAN,ASHA,KAMESHWAR".split(",")];
+
+let classes = [], attendanceDocs = [], selectedClass = null, selectedDocId = null;
+
+async function fetchClassesAndAttendance() {
+  // Fetch all classes
+  const classSnap = await getDocs(collection(db, 'theoryClasses'));
+  classes = classSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  // Fetch all attendance
+  const attSnap = await getDocs(collection(db, 'theoryAttendance'));
+  attendanceDocs = attSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  // Only show classes that have attendance
+  const classSelect = document.getElementById('classSelect');
+  classSelect.innerHTML = '<option value="">-- Select Class --</option>';
+  classes.forEach(cls => {
+    const att = attendanceDocs.find(a => a.date === cls.date && a.time === cls.time);
+    if (att) {
+      const option = document.createElement('option');
+      option.value = cls.id;
+      option.textContent = `${cls.date} (${cls.day}, ${cls.time})`;
+      classSelect.appendChild(option);
+    }
+  });
+}
+
+function renderStudentList(absentees = []) {
+  const listDiv = document.getElementById('studentList');
+  listDiv.innerHTML = '';
+  studentNames.forEach(name => {
+    const label = document.createElement('label');
+    label.className = 'student-checkbox' + (absentees.includes(name) ? ' absent' : '');
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.checked = absentees.includes(name);
+    checkbox.onchange = () => {
+      label.className = 'student-checkbox' + (checkbox.checked ? ' absent' : '');
+    };
+    label.appendChild(checkbox);
+    label.appendChild(document.createTextNode(name));
+    listDiv.appendChild(label);
+  });
+}
+
+document.getElementById('classSelect').addEventListener('change', function() {
+  const classId = this.value;
+  selectedClass = classes.find(c => c.id === classId);
+  if (!selectedClass) {
+    renderStudentList([]);
+    selectedDocId = null;
+    return;
+  }
+  // Find attendance doc for this class
+  const att = attendanceDocs.find(a => a.date === selectedClass.date && a.time === selectedClass.time);
+  selectedDocId = att ? att.id : null;
+  renderStudentList(att ? (att.absentees || []) : []);
+});
+
+window.saveAttendance = async function() {
+  if (!selectedClass || !selectedDocId) return alert('Select a class first!');
+  const absentees = Array.from(document.querySelectorAll('#studentList input:checked')).map(cb => cb.parentNode.textContent);
+  await updateDoc(doc(db, 'theoryAttendance', selectedDocId), { absentees });
+  alert('Attendance updated!');
+};
+
+fetchClassesAndAttendance();
+</script>
+</body>
+</html> 
