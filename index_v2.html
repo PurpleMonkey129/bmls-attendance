@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>BMLS 2024 Attendance</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      background: #f9f9f9;
+    }
+    h2 {
+      margin-bottom: 5px;
+    }
+
+    .tabs {
+      display: flex;
+      margin-bottom: 20px;
+    }
+    .tab {
+      padding: 10px 20px;
+      cursor: pointer;
+      background: #ddd;
+      border-top-left-radius: 10px;
+      border-top-right-radius: 10px;
+      margin-right: 10px;
+    }
+    .tab.active {
+      background: #fff;
+      font-weight: bold;
+      border-bottom: 2px solid white;
+    }
+
+    .tab-content {
+      display: none;
+      background: #fff;
+      border: 1px solid #ccc;
+      padding: 20px;
+      border-radius: 0 10px 10px 10px;
+    }
+    .tab-content.active {
+      display: block;
+    }
+
+    label {
+      display: block;
+      margin-top: 15px;
+    }
+    input, button {
+      padding: 8px;
+      margin-top: 5px;
+      width: 300px;
+    }
+
+    .student-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 10px;
+    }
+    .student {
+      padding: 8px 12px;
+      background-color: #e0e0e0;
+      border-radius: 20px;
+      cursor: pointer;
+      user-select: none;
+    }
+    .student.selected {
+      background-color: #ff8c8c;
+      color: white;
+    }
+
+    .selected-names {
+      margin-top: 15px;
+      padding: 10px;
+      background-color: #fafafa;
+      border: 1px solid #ccc;
+      width: 90%;
+      max-width: 500px;
+    }
+
+    button {
+      width: 150px;
+      margin-top: 20px;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #45a049;
+    }
+  </style>
+</head>
+<body>
+
+  <h2>BMLS 2024 Attendance</h2>
+
+  <div class="tabs">
+    <div class="tab active" onclick="switchTab('theory')">Theory</div>
+    <div class="tab" onclick="switchTab('practical')">Practical</div>
+  </div>
+
+  <!-- THEORY TAB -->
+  <div class="tab-content active" id="theory">
+    <form onsubmit="handleSubmit(event, 'theory')">
+      <label>Date:</label>
+      <input type="date" id="theory-date">
+
+      <label>Start Time:</label>
+      <input type="time" id="theory-start">
+
+      <label>End Time:</label>
+      <input type="time" id="theory-end">
+
+      <label>Absentees:</label>
+      <div class="student-list" id="theory-list"></div>
+
+      <div class="selected-names">
+        <strong>Selected Absentees:</strong>
+        <div id="theory-output">None</div>
+      </div>
+
+      <button type="submit">Save Theory</button>
+    </form>
+  </div>
+
+  <!-- PRACTICAL TAB -->
+  <div class="tab-content" id="practical">
+    <form onsubmit="handleSubmit(event, 'practical')">
+      <label>Date:</label>
+      <input type="date" id="practical-date">
+
+      <label>Start Time:</label>
+      <input type="time" id="practical-start">
+
+      <label>End Time:</label>
+      <input type="time" id="practical-end">
+
+      <label>Absentees:</label>
+      <div class="student-list" id="practical-list"></div>
+
+      <div class="selected-names">
+        <strong>Selected Absentees:</strong>
+        <div id="practical-output">None</div>
+      </div>
+
+      <button type="submit">Save Practical</button>
+    </form>
+  </div>
+
+  <script>
+    // Init
+    document.getElementById("theory-date").valueAsDate = new Date();
+    document.getElementById("practical-date").valueAsDate = new Date();
+
+    const studentNames = [
+      "ABINAYA R", "AFIFA NOORI HUSSAIN", "AKSHARA PREMARAJ P", "AMUSHA", "ANSHIF K K",
+      "AYISHA SANA", "AYUSH VERMA", "BISWARUP MONDAL", "DHIYA FATHIMA K", "FATHIMA MIDHIHA V P",
+      "FATHIMA ZILNA N V", "GURRAPU VEEKSHITHA", "HAASEFA. M", "HANNA K", "HARSHA FATHIMA M K",
+      "JAYASRI N", "JEREMIAH ABRAHAM", "JUMANA SULTHANA K P", "KALAIVANI. E", "KAVYA HARI",
+      "KESSIYA SUSAN ABRAHAM", "KOKILADEVI P", "LOGESHVAR M", "MANIKKAMARY G", "MEERA K",
+      "NAHLA K", "NANDANA S R", "NITHEESHWARAN R", "PRIYA DHAKSHINI D", "REVATHI S",
+      "SHAULI MAJUMDER", "SHIKHA SATHEESH", "SHOHIB AKTHAR A", "SIDHRATHIL MUNTHAHA S M",
+      "STANZIN SHERAP", "VARSHA V", "YADUKRISHNAN", "ASHA", "KAMESHWAR"
+    ];
+
+    const selected = {
+      theory: new Set(),
+      practical: new Set()
+    };
+
+    function populateList(tab) {
+      const container = document.getElementById(`${tab}-list`);
+      studentNames.forEach(name => {
+        const el = document.createElement("span");
+        el.className = "student";
+        el.textContent = name;
+        el.addEventListener("click", () => {
+          el.classList.toggle("selected");
+          if (selected[tab].has(name)) {
+            selected[tab].delete(name);
+          } else {
+            selected[tab].add(name);
+          }
+          updateOutput(tab);
+        });
+        container.appendChild(el);
+      });
+    }
+
+    function updateOutput(tab) {
+      const output = document.getElementById(`${tab}-output`);
+      const names = [...selected[tab]];
+      output.textContent = names.length ? names.join(", ") : "None";
+    }
+
+    function handleSubmit(event, tab) {
+      event.preventDefault();
+      const date = document.getElementById(`${tab}-date`).value;
+      const start = document.getElementById(`${tab}-start`).value;
+      const end = document.getElementById(`${tab}-end`).value;
+      const absentees = [...selected[tab]];
+
+      console.log(`=== ${tab.toUpperCase()} ATTENDANCE ===`);
+      console.log("Date:", date);
+      console.log("Start:", start);
+      console.log("End:", end);
+      console.log("Absentees:", absentees);
+      alert(`${tab.charAt(0).toUpperCase() + tab.slice(1)} attendance saved.`);
+    }
+
+    function switchTab(tabId) {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+      document.querySelector(`.tab[onclick*="${tabId}"]`).classList.add('active');
+      document.getElementById(tabId).classList.add('active');
+    }
+
+    // Populate both tabs
+    populateList('theory');
+    populateList('practical');
+  </script>
+
+</body>
+</html>

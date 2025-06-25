@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>BMLS 2024 Attendance</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      background: #f1f1f1;
+    }
+    h2 {
+      color: #333;
+    }
+    label {
+      display: block;
+      margin-top: 15px;
+    }
+    input, button {
+      padding: 8px;
+      margin-top: 5px;
+      width: 300px;
+    }
+    .student-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 10px;
+    }
+    .student {
+      padding: 8px 12px;
+      background-color: #e0e0e0;
+      border-radius: 20px;
+      cursor: pointer;
+      user-select: none;
+    }
+    .student.selected {
+      background-color: #ff8c8c;
+      color: white;
+    }
+    .selected-names {
+      margin-top: 15px;
+      padding: 10px;
+      background-color: #fff;
+      border: 1px solid #ccc;
+      width: 90%;
+      max-width: 500px;
+    }
+    button {
+      width: 150px;
+      margin-top: 20px;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #45a049;
+    }
+  </style>
+</head>
+<body>
+
+  <h2>BMLS 2024 Attendance Form</h2>
+
+  <form id="attendanceForm">
+    <label for="date">Date:</label>
+    <input type="date" id="date" name="date">
+
+    <label for="startTime">Start Time:</label>
+    <input type="time" id="startTime" name="startTime">
+
+    <label for="endTime">End Time:</label>
+    <input type="time" id="endTime" name="endTime">
+
+    <label>Select Absentees:</label>
+    <div class="student-list" id="studentList">
+      <!-- Names will be inserted by JS -->
+    </div>
+
+    <div class="selected-names">
+      <strong>Selected Absentees:</strong>
+      <div id="selectedOutput">None</div>
+    </div>
+
+    <button type="submit">Save Attendance</button>
+  </form>
+
+  <script>
+    // Set today's date
+    document.getElementById('date').valueAsDate = new Date();
+
+    const studentNames = [
+      "ABINAYA R", "AFIFA NOORI HUSSAIN", "AKSHARA PREMARAJ P", "AMUSHA", "ANSHIF K K",
+      "AYISHA SANA", "AYUSH VERMA", "BISWARUP MONDAL", "DHIYA FATHIMA K", "FATHIMA MIDHIHA V P",
+      "FATHIMA ZILNA N V", "GURRAPU VEEKSHITHA", "HAASEFA. M", "HANNA K", "HARSHA FATHIMA M K",
+      "JAYASRI N", "JEREMIAH ABRAHAM", "JUMANA SULTHANA K P", "KALAIVANI. E", "KAVYA HARI",
+      "KESSIYA SUSAN ABRAHAM", "KOKILADEVI P", "LOGESHVAR M", "MANIKKAMARY G", "MEERA K",
+      "NAHLA K", "NANDANA S R", "NITHEESHWARAN R", "PRIYA DHAKSHINI D", "REVATHI S",
+      "SHAULI MAJUMDER", "SHIKHA SATHEESH", "SHOHIB AKTHAR A", "SIDHRATHIL MUNTHAHA S M",
+      "STANZIN SHERAP", "VARSHA V", "YADUKRISHNAN", "ASHA", "KAMESHWAR"
+    ];
+
+    const studentListEl = document.getElementById("studentList");
+    const selectedOutput = document.getElementById("selectedOutput");
+    const selectedStudents = new Set();
+
+    // Populate student list
+    studentNames.forEach(name => {
+      const span = document.createElement("span");
+      span.className = "student";
+      span.textContent = name;
+      span.addEventListener("click", () => {
+        span.classList.toggle("selected");
+        if (selectedStudents.has(name)) {
+          selectedStudents.delete(name);
+        } else {
+          selectedStudents.add(name);
+        }
+        updateSelectedOutput();
+      });
+      studentListEl.appendChild(span);
+    });
+
+    function updateSelectedOutput() {
+      selectedOutput.textContent = selectedStudents.size > 0
+        ? [...selectedStudents].join(", ")
+        : "None";
+    }
+
+    // Handle form submit
+    document.getElementById('attendanceForm').addEventListener('submit', function(e) {
+      e.preventDefault();
+      const date = document.getElementById('date').value;
+      const startTime = document.getElementById('startTime').value;
+      const endTime = document.getElementById('endTime').value;
+      const absentees = [...selectedStudents];
+
+      console.log("Date:", date);
+      console.log("Start Time:", startTime);
+      console.log("End Time:", endTime);
+      console.log("Absentees:", absentees);
+
+      alert("Attendance saved (check console).");
+    });
+  </script>
+
+</body>
+</html>

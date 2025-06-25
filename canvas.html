@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>BMLS 2024 Attendance</title>
+  <style>
+    body { font-family: Arial; padding: 20px; background: #f4f4f4; }
+    h2 { margin-bottom: 10px; }
+
+    .tabs { display: flex; margin-bottom: 15px; }
+    .tab { padding: 10px 20px; background: #ccc; cursor: pointer; margin-right: 10px; border-radius: 10px 10px 0 0; }
+    .tab.active { background: #fff; font-weight: bold; border-bottom: 2px solid white; }
+
+    .tab-content { display: none; background: #fff; padding: 20px; border: 1px solid #aaa; border-radius: 0 10px 10px 10px; }
+    .tab-content.active { display: block; }
+
+    label { display: block; margin-top: 15px; }
+    input, select, button { padding: 8px; width: 300px; margin-top: 5px; }
+
+    .student-list { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
+    .student { padding: 6px 12px; background: #ddd; border-radius: 20px; cursor: pointer; }
+    .student.selected { background: #f44336; color: white; }
+
+    .selected-names { margin-top: 15px; padding: 10px; background: #fafafa; border: 1px solid #ccc; width: 90%; max-width: 500px; }
+
+    button { width: fit-content; background: #4CAF50; color: white; border: none; cursor: pointer; margin-top: 20px; }
+    button:hover { background: #45a049; }
+
+    #classModal { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.5); justify-content: center; align-items: center; }
+    .modal-content { background: white; padding: 20px; width: 90%; max-width: 600px; border-radius: 10px; }
+
+    .class-list { margin-top: 15px; max-height: 200px; overflow-y: auto; }
+    .class-row { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid #eee; }
+    .class-row span { flex: 1; }
+    .class-row button { margin-left: 10px; background: #f44336; }
+
+    .mode-switch { display: flex; gap: 10px; margin-top: 10px; }
+    .mode-button { padding: 6px 12px; background: #ddd; cursor: pointer; border-radius: 5px; }
+    .mode-button.active { background: #2196F3; color: white; }
+  </style>
+</head>
+<body>
+
+<h2>BMLS 2024 Attendance</h2>
+<div class="tabs">
+  <div class="tab active" onclick="switchTab('theory')">Theory</div>
+  <div class="tab" onclick="switchTab('practical')">Practical</div>
+  <button onclick="openClassModal()">Edit Classes</button>
+</div>
+
+<div class="tab-content active" id="theory">
+  <form onsubmit="event.preventDefault();">
+    <label>Select Class:</label>
+    <select id="theory-class"></select>
+
+    <label>Absentees:</label>
+    <div class="student-list" id="theory-list"></div>
+
+    <div class="selected-names"><strong>Selected Absentees:</strong> <div id="theory-output">None</div></div>
+    <button type="button" onclick="addAttendanceRow('theory')">Add Row</button>
+
+    <table id="theory-table">
+      <thead>
+        <tr><th>Date</th><th>Start</th><th>End</th><th>Absentees</th></tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+
+    <button type="button" onclick="saveAttendance('theory')">Save All Theory Rows</button>
+  </form>
+</div>
+
+<div class="tab-content" id="practical">
+  <form onsubmit="event.preventDefault();">
+    <label>Select Class:</label>
+    <select id="practical-class"></select>
+
+    <label>Absentees:</label>
+    <div class="student-list" id="practical-list"></div>
+
+    <div class="selected-names"><strong>Selected Absentees:</strong> <div id="practical-output">None</div></div>
+    <button type="button" onclick="addAttendanceRow('practical')">Add Row</button>
+
+    <table id="practical-table">
+      <thead>
+        <tr><th>Date</th><th>Start</th><th>End</th><th>Absentees</th></tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+
+    <button type="button" onclick="saveAttendance('practical')">Save All Practical Rows</button>
+  </form>
+</div>
+
+<!-- MODAL -->
+<div id="classModal">
+  <div class="modal-content">
+    <h3>Edit Classes</h3>
+    <div class="mode-switch">
+      <div class="mode-button active" onclick="switchMode('theory')">Theory</div>
+      <div class="mode-button" onclick="switchMode('practical')">Practical</div>
+    </div>
+    <div id="classForm"></div>
+    <button onclick="showAddManual()">Add Manually</button>
+    <input type="file" accept=".csv" onchange="uploadCSV(event)">
+    <h4>Existing Classes</h4>
+    <div class="class-list" id="classList"></div>
+    <button onclick="closeClassModal()">Close</button>
+  </div>
+</div>
+
+<script>
+const studentNames = [..."ABINAYA R,AFIFA NOORI HUSSAIN,AKSHARA PREMARAJ P,AMUSHA,ANSHIF K K,AYISHA SANA,AYUSH VERMA,BISWARUP MONDAL,DHIYA FATHIMA K,FATHIMA MIDHIHA V P,FATHIMA ZILNA N V,GURRAPU VEEKSHITHA,HAASEFA. M,HANNA K,HARSHA FATHIMA M K,JAYASRI N,JEREMIAH ABRAHAM,JUMANA SULTHANA K P,KALAIVANI. E,KAVYA HARI,KESSIYA SUSAN ABRAHAM,KOKILADEVI P,LOGESHVAR M,MANIKKAMARY G,MEERA K,NAHLA K,NANDANA S R,NITHEESHWARAN R,PRIYA DHAKSHINI D,REVATHI S,SHAULI MAJUMDER,SHIKHA SATHEESH,SHOHIB AKTHAR A,SIDHRATHIL MUNTHAHA S M,STANZIN SHERAP,VARSHA V,YADUKRISHNAN,ASHA,KAMESHWAR".split(",")];
+const selected = { theory: new Set(), practical: new Set() };
+let theoryClasses = [], practicalClasses = [];
+let currentClassMode = 'theory';
+
+function switchTab(tab) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+  document.querySelector(`.tab[onclick*="${tab}"]`).classList.add('active');
+  document.getElementById(tab).classList.add('active');
+}
+
+function switchMode(mode) {
+  currentClassMode = mode;
+  document.querySelectorAll('.mode-button').forEach(btn => btn.classList.remove('active'));
+  document.querySelector(`.mode-button[onclick*="${mode}"]`).classList.add('active');
+  refreshClassList();
+  refreshClassDropdowns();
+}
+
+function populateStudents(tab) {
+  const el = document.getElementById(`${tab}-list`);
+  studentNames.forEach(name => {
+    const span = document.createElement("span");
+    span.className = "student";
+    span.textContent = name;
+    span.addEventListener("click", () => {
+      span.classList.toggle("selected");
+      selected[tab].has(name) ? selected[tab].delete(name) : selected[tab].add(name);
+      updateSelectedOutput(tab);
+    });
+    el.appendChild(span);
+  });
+}
+
+function updateSelectedOutput(tab) {
+  const output = document.getElementById(`${tab}-output`);
+  const names = [...selected[tab]];
+  output.textContent = names.length ? names.join(", ") : "None";
+}
+
+function handleSubmit(e, tab) {
+  e.preventDefault();
+  const classId = document.getElementById(`${tab}-class`).value;
+  const classData = (tab === 'theory' ? theoryClasses : practicalClasses).find(c => c.id == classId);
+  const absentees = [...selected[tab]];
+  console.log(`=== ${tab.toUpperCase()} ===`);
+  console.log("Class:", classData);
+  console.log("Absentees:", absentees);
+  alert(`${tab} attendance saved.`);
+}
+
+function openClassModal() {
+  document.getElementById("classModal").style.display = "flex";
+  refreshClassList();
+  refreshClassDropdowns();
+}
+function closeClassModal() {
+  document.getElementById("classModal").style.display = "none";
+}
+
+function showAddManual() {
+  const form = document.getElementById("classForm");
+  form.innerHTML = `
+    <input type="date" id="add-date">
+    <input type="time" id="add-start">
+    <input type="time" id="add-end">
+    <button onclick="addManualClass()">Add</button>
+  `;
+}
+
+function addManualClass() {
+  const date = document.getElementById("add-date").value;
+  const start = document.getElementById("add-start").value;
+  const end = document.getElementById("add-end").value;
+  if (date && start && end) {
+    const list = currentClassMode === 'theory' ? theoryClasses : practicalClasses;
+    list.push({ id: list.length + 1, date, start, end });
+    refreshClassList();
+    refreshClassDropdowns();
+  }
+}
+
+function refreshClassList() {
+  const list = document.getElementById("classList");
+  list.innerHTML = '';
+  const currentList = currentClassMode === 'theory' ? theoryClasses : practicalClasses;
+  currentList.forEach(cls => {
+    const row = document.createElement("div");
+    row.className = "class-row";
+    row.innerHTML = `
+      <span>${cls.id}</span>
+      <span>${cls.date}</span>
+      <span>${cls.start}</span>
+      <span>${cls.end}</span>
+      <button onclick="deleteClass(${cls.id})">Delete</button>
+    `;
+    list.appendChild(row);
+  });
+}
+
+function deleteClass(id) {
+  let list = currentClassMode === 'theory' ? theoryClasses : practicalClasses;
+  const i = list.findIndex(c => c.id === id);
+  if (i !== -1) list.splice(i, 1);
+  refreshClassList();
+  refreshClassDropdowns();
+}
+
+function refreshClassDropdowns() {
+  ['theory', 'practical'].forEach(tab => {
+    const sel = document.getElementById(`${tab}-class`);
+    sel.innerHTML = '<option value="">-- Select Class --</option>';
+    const list = tab === 'theory' ? theoryClasses : practicalClasses;
+    list.forEach(cls => {
+      sel.innerHTML += `<option value="${cls.id}">${cls.date} (${cls.start}-${cls.end})</option>`;
+    });
+  });
+}
+
+function uploadCSV(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const lines = e.target.result.split('\n').slice(1);
+    const list = currentClassMode === 'theory' ? theoryClasses : practicalClasses;
+    lines.forEach(line => {
+      const [_, date, start, end] = line.split(',').map(v => v.trim());
+      if (date && start && end) {
+        list.push({ id: list.length + 1, date, start, end });
+      }
+    });
+    refreshClassList();
+    refreshClassDropdowns();
+  };
+  reader.readAsText(file);
+}
+
+function addAttendanceRow(tab) {
+  const classId = document.getElementById(`${tab}-class`).value;
+  if (!classId) return alert("Please select a class first");
+  const list = tab === 'theory' ? theoryClasses : practicalClasses;
+  const cls = list.find(c => c.id == classId);
+  const absentees = [...selected[tab]];
+  if (!absentees.length) return alert("No absentees selected");
+
+  const row = document.createElement("tr");
+  row.innerHTML = `<td>${cls.date}</td><td>${cls.start}</td><td>${cls.end}</td><td>${absentees.join(", ")}</td>`;
+  document.querySelector(`#${tab}-table tbody`).appendChild(row);
+  selected[tab].clear();
+  document.querySelectorAll(`#${tab}-list .student.selected`).forEach(el => el.classList.remove('selected'));
+  updateSelectedOutput(tab);
+}
+
+function saveAttendance(tab) {
+  const rows = Array.from(document.querySelectorAll(`#${tab}-table tbody tr`));
+  const data = rows.map(row => {
+    const cells = row.querySelectorAll("td");
+    return {
+      type: tab, // "theory" or "practical"
+      date: cells[0].textContent,
+      start: cells[1].textContent,
+      end: cells[2].textContent,
+      absentees: cells[3].textContent.split(", ")
+    };
+  });
+
+  const scriptURL = "https://script.google.com/macros/s/AKfycbzbXjVCNVIPGtuHRtFXV99ChSP8ejnaIJrYIbRHYKJ7r5ZpV-R6UFqokZZMduilaBb4/exec";
+  fetch(scriptURL, {
+    method: "POST",
+    body: JSON.stringify(data),
+    headers: { "Content-Type": "application/json" }
+  })
+  .then(res => res.text())
+  .then(response => {
+    alert("Saved to Google Sheet: " + response);
+  })
+  .catch(error => {
+    alert("Error saving to Google Sheet: " + error);
+  });
+}
+
+populateStudents("theory");
+populateStudents("practical");
+</script>
+</body>
+</html>
