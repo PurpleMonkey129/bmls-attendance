@@ -150,12 +150,23 @@
 
   // Track used class IDs for each tab
   const usedClassIds = { theory: new Set(), practical: new Set() };
+  // Track attended class keys for each tab
+  const attendedClassKeys = { theory: new Set(), practical: new Set() };
 
   async function fetchClasses(tab) {
     const snap = await getDocs(collection(db, `${tab}Classes`));
     const list = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     if (tab === 'theory') theoryClasses = list;
     else practicalClasses = list;
+    // Fetch attendance for this tab and build attendedClassKeys
+    attendedClassKeys[tab].clear();
+    const attSnap = await getDocs(collection(db, `${tab}Attendance`));
+    attSnap.docs.forEach(doc => {
+      const data = doc.data();
+      if (data.date && data.time) {
+        attendedClassKeys[tab].add(`${data.date}|${data.time}`);
+      }
+    });
     populateClassDropdown(tab);
   }
 
@@ -201,8 +212,10 @@
     sel.innerHTML = '<option value="">-- Select Class --</option>';
     const list = tab === 'theory' ? theoryClasses : practicalClasses;
     const used = usedClassIds[tab];
+    const attended = attendedClassKeys[tab];
     list.forEach(cls => {
-      if (!used.has(cls.id)) {
+      const classKey = `${cls.date}|${cls.time}`;
+      if (!used.has(cls.id) && !attended.has(classKey)) {
         const option = document.createElement("option");
         option.value = cls.id;
         option.textContent = `${cls.date} (${cls.day}, ${cls.time})`;
