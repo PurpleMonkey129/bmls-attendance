@@ -54,11 +54,6 @@
 </head>
 <body>
 
-<div style="margin-bottom: 20px; display: flex; gap: 10px;">
-  <button onclick="window.location.href='view-attendance-theory.html'">View Theory Attendance</button>
-  <button onclick="window.location.href='view-attendance-practical.html'">View Practical Attendance</button>
-</div>
-
 <h2>BMLS 2024 Attendance</h2>
 <div class="tabs">
   <div class="tab active" onclick="switchTab('theory')">Theory</div>
@@ -77,7 +72,7 @@
 
   <table id="theory-table">
     <thead>
-      <tr><th>Date</th><th>Day</th><th>Time</th><th>Absentees</th></tr>
+      <tr><th>Date</th><th>Start</th><th>End</th><th>Absentees</th></tr>
     </thead>
     <tbody></tbody>
   </table>
@@ -96,7 +91,7 @@
 
   <table id="practical-table">
     <thead>
-      <tr><th>Date</th><th>Day</th><th>Time</th><th>Absentees</th></tr>
+      <tr><th>Date</th><th>Start</th><th>End</th><th>Absentees</th></tr>
     </thead>
     <tbody></tbody>
   </table>
@@ -114,12 +109,7 @@
     </div>
     <div id="classForm"></div>
     <button onclick="showAddManual()">Add Manually</button>
-    <input type="file" accept=".csv" onchange="previewCSV(event)">
-    <div class="csv-preview" id="csvPreviewContainer" style="display:none;">
-      <h4>CSV Preview</h4>
-      <table id="csvPreviewTable"></table>
-      <button id="confirmAddBtn" onclick="confirmAddCSV()">Confirm Add</button>
-    </div>
+    <input type="file" accept=".csv" onchange="uploadCSV(event)">
     <h4>Existing Classes</h4>
     <div class="class-list" id="classList"></div>
     <button onclick="closeClassModal()">Close</button>
@@ -147,9 +137,6 @@
 
   const studentNames = [..."ABINAYA R,AFIFA NOORI HUSSAIN,AKSHARA PREMARAJ P,AMUSHA,ANSHIF K K,AYISHA SANA,AYUSH VERMA,BISWARUP MONDAL,DHIYA FATHIMA K,FATHIMA MIDHIHA V P,FATHIMA ZILNA N V,GURRAPU VEEKSHITHA,HAASEFA. M,HANNA K,HARSHA FATHIMA M K,JAYASRI N,JEREMIAH ABRAHAM,JUMANA SULTHANA K P,KALAIVANI. E,KAVYA HARI,KESSIYA SUSAN ABRAHAM,KOKILADEVI P,LOGESHVAR M,MANIKKAMARY G,MEERA K,NAHLA K,NANDANA S R,NITHEESHWARAN R,PRIYA DHAKSHINI D,REVATHI S,SHAULI MAJUMDER,SHIKHA SATHEESH,SHOHIB AKTHAR A,SIDHRATHIL MUNTHAHA S M,STANZIN SHERAP,VARSHA V,YADUKRISHNAN,ASHA,KAMESHWAR".split(",")];
   const selected = { theory: new Set(), practical: new Set() };
-
-  // Track used class IDs for each tab
-  const usedClassIds = { theory: new Set(), practical: new Set() };
 
   async function fetchClasses(tab) {
     const snap = await getDocs(collection(db, `${tab}Classes`));
@@ -200,14 +187,11 @@
     const sel = document.getElementById(`${tab}-class`);
     sel.innerHTML = '<option value="">-- Select Class --</option>';
     const list = tab === 'theory' ? theoryClasses : practicalClasses;
-    const used = usedClassIds[tab];
     list.forEach(cls => {
-      if (!used.has(cls.id)) {
-        const option = document.createElement("option");
-        option.value = cls.id;
-        option.textContent = `${cls.date} (${cls.day}, ${cls.time})`;
-        sel.appendChild(option);
-      }
+      const option = document.createElement("option");
+      option.value = cls.id;
+      option.textContent = `${cls.date} (${cls.start} - ${cls.end})`;
+      sel.appendChild(option);
     });
   }
 
@@ -254,51 +238,25 @@
     refreshClassDropdowns();
   }
 
-  function previewCSV(event) {
+  async function uploadCSV(event) {
     const file = event.target.files[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = function(e) {
-      const lines = e.target.result.split('\n').filter(line => line.trim());
-      csvRows = [];
-      // Remove header if present
-      let startIdx = 0;
-      if (lines[0].toLowerCase().includes('date') && lines[0].toLowerCase().includes('time')) {
-        startIdx = 1;
-      }
-      for (let i = startIdx; i < lines.length; i++) {
-        const [sno, date, day, time] = lines[i].split(',').map(v => v.trim());
-        if (date && day && time) {
-          csvRows.push({ date, day, time });
+    reader.onload = async function(e) {
+      const lines = e.target.result.split('\n').slice(1);
+      const ref = collection(db, `${currentClassMode}Classes`);
+      for (const line of lines) {
+        const [_, date, start, end] = line.split(',').map(v => v.trim());
+        if (date && start && end) {
+          await addDoc(ref, { date, start, end });
         }
       }
-      // Display preview
-      const previewContainer = document.getElementById('csvPreviewContainer');
-      const previewTable = document.getElementById('csvPreviewTable');
-      if (csvRows.length) {
-        previewTable.innerHTML = '<tr><th>Date</th><th>Day</th><th>Time</th></tr>' +
-          csvRows.map(r => `<tr><td>${r.date}</td><td>${r.day}</td><td>${r.time}</td></tr>`).join("");
-        previewContainer.style.display = 'block';
-      } else {
-        previewTable.innerHTML = '<tr><td colspan="3">No valid rows found</td></tr>';
-        previewContainer.style.display = 'block';
-      }
+      await fetchClasses(currentClassMode);
+      refreshClassList();
+      refreshClassDropdowns();
+      alert("Classes uploaded successfully");
     };
     reader.readAsText(file);
-  }
-
-  async function confirmAddCSV() {
-    if (!csvRows.length) return alert('No rows to add!');
-    const ref = collection(db, `${currentClassMode}Classes`);
-    for (const row of csvRows) {
-      await addDoc(ref, row);
-    }
-    await fetchClasses(currentClassMode);
-    refreshClassList();
-    refreshClassDropdowns();
-    alert('Classes uploaded successfully');
-    document.getElementById('csvPreviewContainer').style.display = 'none';
-    csvRows = [];
   }
 
   function addAttendanceRow(tab) {
@@ -309,12 +267,8 @@
     const absentees = [...selected[tab]];
     if (!absentees.length) return alert("No absentees selected");
 
-    // Mark class as used
-    usedClassIds[tab].add(classId);
-    populateClassDropdown(tab);
-
     const row = document.createElement("tr");
-    row.innerHTML = `<td>${cls.date}</td><td>${cls.day}</td><td>${cls.time}</td><td class="absentees-cell">${absentees.join(", ")}</td><td><button onclick="editAttendanceRow(this, '${tab}')">Edit</button> <button onclick="deleteAttendanceRow(this, '${tab}', '${classId}')">Delete</button></td>`;
+    row.innerHTML = `<td>${cls.date}</td><td>${cls.start}</td><td>${cls.end}</td><td>${absentees.join(", ")}</td>`;
     document.querySelector(`#${tab}-table tbody`).appendChild(row);
     selected[tab].clear();
     document.querySelectorAll(`#${tab}-list .student.selected`).forEach(el => el.classList.remove('selected'));
@@ -328,8 +282,8 @@
       const cells = row.querySelectorAll("td");
       const data = {
         date: cells[0].textContent,
-        day: cells[1].textContent,
-        time: cells[2].textContent,
+        start: cells[1].textContent,
+        end: cells[2].textContent,
         absentees: cells[3].textContent.split(", ")
       };
       await addDoc(ref, data);
@@ -346,8 +300,8 @@
       row.className = "class-row";
       row.innerHTML = `
         <span>${cls.date}</span>
-        <span>${cls.day}</span>
-        <span>${cls.time}</span>
+        <span>${cls.start}</span>
+        <span>${cls.end}</span>
         <button onclick="deleteClass('${cls.id}')">Delete</button>
       `;
       list.appendChild(row);
@@ -362,48 +316,10 @@
       list.forEach(cls => {
         const option = document.createElement("option");
         option.value = cls.id;
-        option.textContent = `${cls.date} (${cls.day}, ${cls.time})`;
+        option.textContent = `${cls.date} (${cls.start} - ${cls.end})`;
         sel.appendChild(option);
       });
     });
-  }
-
-  function deleteAttendanceRow(btn, tab, classId) {
-    // Remove row from table
-    const row = btn.closest('tr');
-    row.remove();
-    // Mark class as unused
-    usedClassIds[tab].delete(classId);
-    populateClassDropdown(tab);
-  }
-
-  function editAttendanceRow(btn, tab) {
-    const row = btn.closest('tr');
-    const absenteesCell = row.querySelector('.absentees-cell');
-    const absentees = absenteesCell.textContent.split(',').map(s => s.trim()).filter(Boolean);
-    // Pre-select absentees in the UI
-    selected[tab] = new Set(absentees);
-    document.querySelectorAll(`#${tab}-list .student`).forEach(el => {
-      if (selected[tab].has(el.textContent)) {
-        el.classList.add('selected');
-      } else {
-        el.classList.remove('selected');
-      }
-    });
-    updateSelectedOutput(tab);
-    // When user clicks Add Row again, update this row instead of adding new
-    const addBtn = document.querySelector(`.tab-content#${tab} button[onclick*='addAttendanceRow']`);
-    addBtn.textContent = 'Save Edit';
-    addBtn.onclick = function() {
-      const newAbsentees = [...selected[tab]];
-      if (!newAbsentees.length) return alert('No absentees selected');
-      absenteesCell.textContent = newAbsentees.join(', ');
-      selected[tab].clear();
-      document.querySelectorAll(`#${tab}-list .student.selected`).forEach(el => el.classList.remove('selected'));
-      updateSelectedOutput(tab);
-      addBtn.textContent = 'Add Row';
-      addBtn.onclick = function() { addAttendanceRow(tab); };
-    };
   }
 
   populateStudents("theory");
@@ -419,13 +335,10 @@
   window.showAddManual = showAddManual;
   window.addManualClass = addManualClass;
   window.deleteClass = deleteClass;
-  window.previewCSV = previewCSV;
-  window.confirmAddCSV = confirmAddCSV;
+  window.uploadCSV = uploadCSV;
   window.addAttendanceRow = addAttendanceRow;
   window.saveAttendance = saveAttendance;
   window.switchTab = switchTab;
-  window.deleteAttendanceRow = deleteAttendanceRow;
-  window.editAttendanceRow = editAttendanceRow;
 </script>
 </body>
 </html>

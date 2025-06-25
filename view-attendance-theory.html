@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>View Theory Attendance</title>
+  <style>
+    body { font-family: Arial; padding: 20px; background: #f4f4f4; }
+    h2 { margin-bottom: 10px; }
+    .tabs { display: flex; gap: 10px; margin-bottom: 20px; }
+    .tab { padding: 8px 18px; background: #ccc; cursor: pointer; border-radius: 10px 10px 0 0; }
+    .tab.active { background: #fff; font-weight: bold; border-bottom: 2px solid white; }
+    .attendance-table { width: 100%; border-collapse: collapse; background: #fff; }
+    .attendance-table th, .attendance-table td { padding: 8px; border: 1px solid #bbb; text-align: center; }
+    .attendance-table th { background: #e0e0e0; }
+    .attendance-table td.absent { background: #f44336; color: #fff; }
+    .attendance-table td.present { background: #4CAF50; color: #fff; }
+    .attendance-table td { min-width: 70px; }
+    .attendance-table th.sticky { position: sticky; left: 0; background: #e0e0e0; z-index: 2; }
+    .attendance-table td.sticky { position: sticky; left: 0; background: #fff; z-index: 1; }
+  </style>
+</head>
+<body>
+<div style="margin-bottom: 20px;"><button onclick="window.location.href='index.html'">Back</button></div>
+<h2>View Theory Attendance</h2>
+<div class="tabs" id="monthTabs"></div>
+<div id="attendanceTableContainer"></div>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyA9v2CFMe87WMvKMQU4-VP6241Ez0nNj_o",
+  authDomain: "attendance-a480f.firebaseapp.com",
+  projectId: "attendance-a480f",
+  storageBucket: "attendance-a480f.firebasestorage.app",
+  messagingSenderId: "719757420786",
+  appId: "1:719757420786:web:5f16b1a837f8261939086b"
+};
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+const studentNames = [..."ABINAYA R,AFIFA NOORI HUSSAIN,AKSHARA PREMARAJ P,AMUSHA,ANSHIF K K,AYISHA SANA,AYUSH VERMA,BISWARUP MONDAL,DHIYA FATHIMA K,FATHIMA MIDHIHA V P,FATHIMA ZILNA N V,GURRAPU VEEKSHITHA,HAASEFA. M,HANNA K,HARSHA FATHIMA M K,JAYASRI N,JEREMIAH ABRAHAM,JUMANA SULTHANA K P,KALAIVANI. E,KAVYA HARI,KESSIYA SUSAN ABRAHAM,KOKILADEVI P,LOGESHVAR M,MANIKKAMARY G,MEERA K,NAHLA K,NANDANA S R,NITHEESHWARAN R,PRIYA DHAKSHINI D,REVATHI S,SHAULI MAJUMDER,SHIKHA SATHEESH,SHOHIB AKTHAR A,SIDHRATHIL MUNTHAHA S M,STANZIN SHERAP,VARSHA V,YADUKRISHNAN,ASHA,KAMESHWAR".split(",")];
+
+let allClasses = [], allAttendance = [], months = [], currentMonth = '';
+
+function getMonthLabel(dateStr) {
+  // dateStr: '25-06-2025' or '2025-06-25'
+  let d, m, y;
+  if (dateStr.includes('-')) {
+    const parts = dateStr.split('-');
+    if (parts[2].length === 4) { // dd-mm-yyyy
+      [d, m, y] = parts;
+    } else if (parts[0].length === 4) { // yyyy-mm-dd
+      [y, m, d] = parts;
+    }
+  }
+  return `${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][parseInt(m,10)-1]}'${y.slice(-2)}`;
+}
+
+async function fetchData() {
+  // Fetch all classes
+  const classSnap = await getDocs(collection(db, 'theoryClasses'));
+  allClasses = classSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  // Fetch all attendance
+  const attSnap = await getDocs(collection(db, 'theoryAttendance'));
+  allAttendance = attSnap.docs.map(doc => doc.data());
+  // Get unique months
+  const monthSet = new Set();
+  allClasses.forEach(cls => {
+    if (cls.date) monthSet.add(getMonthLabel(cls.date));
+  });
+  months = Array.from(monthSet);
+  months.sort((a, b) => a.localeCompare(b));
+  renderTabs();
+  if (months.length) selectMonth(months[0]);
+}
+
+function renderTabs() {
+  const tabDiv = document.getElementById('monthTabs');
+  tabDiv.innerHTML = '';
+  months.forEach(month => {
+    const tab = document.createElement('div');
+    tab.className = 'tab' + (month === currentMonth ? ' active' : '');
+    tab.textContent = month;
+    tab.onclick = () => selectMonth(month);
+    tabDiv.appendChild(tab);
+  });
+}
+
+function selectMonth(month) {
+  currentMonth = month;
+  renderTabs();
+  // Filter classes for this month
+  const monthClasses = allClasses.filter(cls => getMonthLabel(cls.date) === month);
+  // Sort classes by date+time
+  monthClasses.sort((a, b) => {
+    // Try to sort by yyyy-mm-dd if possible
+    const parse = s => {
+      let [d, m, y] = s.date.split('-');
+      if (y && y.length === 4) [y, m, d] = s.date.split('-');
+      return new Date(`${y}-${m}-${d}T${(s.time||'00:00').replace(/[^0-9:]/g,'')}`);
+    };
+    return parse(a) - parse(b);
+  });
+  // Build attendance map: { 'date|time': Set(absentees) }
+  const attMap = {};
+  allAttendance.forEach(row => {
+    if (getMonthLabel(row.date) === month && row.date && row.time) {
+      attMap[`${row.date}|${row.time}`] = new Set(row.absentees || []);
+    }
+  });
+  // Build table
+  let html = `<table class="attendance-table"><thead><tr><th class="sticky">Student</th>`;
+  monthClasses.forEach(cls => {
+    html += `<th>${cls.date}<br>${cls.time}</th>`;
+  });
+  html += `<th>Total Attendance (${monthClasses.length})</th></tr></thead><tbody>`;
+  studentNames.forEach(name => {
+    let presentCount = 0;
+    html += `<tr><td class="sticky">${name}</td>`;
+    monthClasses.forEach(cls => {
+      const attKey = `${cls.date}|${cls.time}`;
+      if (!(attKey in attMap)) {
+        html += '<td></td>';
+      } else {
+        const absentees = attMap[attKey];
+        if (absentees.has(name)) {
+          html += '<td class="absent">A</td>';
+        } else {
+          html += '<td class="present">P</td>';
+          presentCount++;
+        }
+      }
+    });
+    html += `<td>${presentCount}</td></tr>`;
+  });
+  html += '</tbody></table>';
+  document.getElementById('attendanceTableContainer').innerHTML = html;
+}
+
+fetchData();
+</script>
+</body>
+</html> 
