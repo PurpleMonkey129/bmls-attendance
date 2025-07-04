@@ -210,9 +210,33 @@
   function populateClassDropdown(tab) {
     const sel = document.getElementById(`${tab}-class`);
     sel.innerHTML = '<option value="">-- Select Class --</option>';
-    const list = tab === 'theory' ? theoryClasses : practicalClasses;
+    let list = tab === 'theory' ? theoryClasses : practicalClasses;
     const used = usedClassIds[tab];
     const attended = attendedClassKeys[tab];
+    // Sort by sno if present, else by date
+    list = list.slice().sort((a, b) => {
+      if (a.sno !== undefined && b.sno !== undefined) {
+        return a.sno - b.sno;
+      } else if (a.sno !== undefined) {
+        return -1;
+      } else if (b.sno !== undefined) {
+        return 1;
+      } else {
+        // Fallback to date sort
+        function parseDate(cls) {
+          let d, m, y;
+          if (cls.date && cls.date.includes('-')) {
+            const parts = cls.date.split('-');
+            if (parts[2].length === 4) { [d, m, y] = parts; } // dd-mm-yyyy
+            else if (parts[0].length === 4) { [y, m, d] = parts; }
+          }
+          let dateStr = y && m && d ? `${y}-${m}-${d}` : cls.date;
+          let timeStr = (cls.time || '').replace(/[^0-9:]/g, '');
+          return new Date(`${dateStr}T${timeStr || '00:00'}`);
+        }
+        return parseDate(a) - parseDate(b);
+      }
+    });
     list.forEach(cls => {
       const classKey = `${cls.date}|${cls.time}`;
       if (!used.has(cls.id) && !attended.has(classKey)) {
@@ -282,18 +306,18 @@
       for (let i = startIdx; i < lines.length; i++) {
         const [sno, date, day, time] = lines[i].split(',').map(v => v.trim());
         if (date && day && time) {
-          csvRows.push({ date, day, time });
+          csvRows.push({ sno: sno ? Number(sno) : undefined, date, day, time });
         }
       }
       // Display preview
       const previewContainer = document.getElementById('csvPreviewContainer');
       const previewTable = document.getElementById('csvPreviewTable');
       if (csvRows.length) {
-        previewTable.innerHTML = '<tr><th>Date</th><th>Day</th><th>Time</th></tr>' +
-          csvRows.map(r => `<tr><td>${r.date}</td><td>${r.day}</td><td>${r.time}</td></tr>`).join("");
+        previewTable.innerHTML = '<tr><th>S.No</th><th>Date</th><th>Day</th><th>Time</th></tr>' +
+          csvRows.map(r => `<tr><td>${r.sno ?? ''}</td><td>${r.date}</td><td>${r.day}</td><td>${r.time}</td></tr>`).join("");
         previewContainer.style.display = 'block';
       } else {
-        previewTable.innerHTML = '<tr><td colspan="3">No valid rows found</td></tr>';
+        previewTable.innerHTML = '<tr><td colspan="4">No valid rows found</td></tr>';
         previewContainer.style.display = 'block';
       }
     };
